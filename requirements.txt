@@ -1,0 +1,17 @@
+# Core numerical + data
+numpy
+pillow            # image loading/resizing
+scikit-learn      # Phase 5 baseline + train/val/test split helper
+
+# TensorFlow / Keras (Phase 4)
+tensorflow        # use tensorflow-macos if on Apple Silicon and this fails
+
+# Plotting + notebooks (comparison, loss curves, confusion matrices)
+matplotlib
+jupyter
+
+# Data download
+kaggle            # Kaggle CLI/API to pull the dataset
+
+# Nice-to-have
+tqdm              # progress bars for data loading / training loops
