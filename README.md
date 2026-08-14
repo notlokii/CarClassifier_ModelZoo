@@ -17,8 +17,9 @@ and diagnosing bias/variance correctly, is the real deliverable. See the PRD for
 numpy_model/       # from-scratch implementation
 tf_model/          # Keras equivalent
 sklearn_baseline/  # baseline model
-comparison/        # notebook: accuracy, training time, loss curves, confusion matrices
+comparison/        # (optional) extra comparison artifacts; the lab notebook is the main report
 common/            # shared data pipeline (loading, resizing, flatten, normalize, split)
+car_classifier_model_zoo.ipynb  # one lab notebook, sections per phase
 data/
   raw/             # Kaggle dataset (gitignored)
   processed/       # cached resized/flattened arrays (gitignored)
@@ -27,8 +28,24 @@ data/
 ## Setup
 
 ```bash
-conda activate mlcourse        # Python 3.11
+conda activate mlcourse        # Python 3.11; `carzoo` also works if that's where you installed deps
 pip install -r requirements.txt
+```
+
+## Where the code lives
+
+Hybrid on purpose: reusable `.py` modules for anything a model must import; **one** notebook (`car_classifier_model_zoo.ipynb`) as the lab / story, with a section per phase.
+
+| Phase | Where you work |
+|---|---|
+| 0 — data pipeline | `common/data.py` + Phase 0 section of the notebook |
+| 1–3 — NumPy net | `numpy_model/` (you write the math) + matching notebook sections |
+| 4 — Keras | `tf_model/` |
+| 5 — sklearn baseline | `sklearn_baseline/` |
+| 6 — comparison | same notebook, final section |
+
+```bash
+jupyter notebook car_classifier_model_zoo.ipynb
 ```
 
 ## Status
