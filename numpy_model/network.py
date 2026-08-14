@@ -20,6 +20,7 @@ Phase 1 done when:
   - you can say out loud why every matrix has the shape it has
 
 Phase 2: loss + backprop + a vanilla GD step, proven on ~50 images first.
+Phase 3: mini-batch GD on the full train set; diagnose train vs val curves.
 """
 
 from __future__ import annotations
@@ -212,3 +213,81 @@ def update_params(
     for key in params:
         params[key] = params[key] - learning_rate * grads[f"d{key}"]
     return params
+
+
+def accuracy(A3: np.ndarray, y: np.ndarray) -> float:
+    """Fraction of examples whose predicted class matches y.
+
+    A3: (m, 7) softmax probabilities
+    y:  (m,) integer labels in {0, ..., 6}
+
+    Predicted class = argmax over the 7 columns (axis=1). Then compare to y
+    and take the mean. No sklearn.metrics — this is the one you derive once.
+    """
+    raise NotImplementedError("Phase 3: implement accuracy")
+
+
+def minibatches(
+    X: np.ndarray,
+    Y: np.ndarray,
+    batch_size: int = 64,
+    shuffle: bool = True,
+    seed: int | None = None,
+):
+    """Yield (X_batch, Y_batch) covering every example once.
+
+    Mini-batch GD: each update uses a slice of the data, not all m at once.
+    Shuffle every epoch so the batches are not the same ordering every time.
+    """
+    m = X.shape[0]
+    indices = np.arange(m)
+    if shuffle:
+        rng = np.random.default_rng(seed)
+        rng.shuffle(indices)
+    for start in range(0, m, batch_size):
+        idx = indices[start : start + batch_size]
+        yield X[idx], Y[idx]
+
+
+def train(
+    X_train: np.ndarray,
+    Y_train: np.ndarray,
+    X_val: np.ndarray,
+    Y_val: np.ndarray,
+    epochs: int = 20,
+    batch_size: int = 64,
+    learning_rate: float = 0.5,
+    seed: int = 42,
+) -> tuple[dict[str, np.ndarray], dict[str, list[float]]]:
+    """Mini-batch gradient descent on the full train set.
+
+    One epoch = one pass through every training example, in shuffled batches.
+    After each epoch we record:
+      train_loss — mean CCE over the batches that epoch
+      val_loss   — CCE on the whole val set (forward only, no update)
+
+    Val is for diagnosis (bias vs variance). Do not pick hyperparameters on test.
+    """
+    params = init_params(seed=seed)
+    history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+
+    for epoch in range(epochs):
+        batch_losses = []
+        for Xb, Yb in minibatches(
+            X_train, Y_train, batch_size=batch_size, shuffle=True, seed=seed + epoch
+        ):
+            A3, cache = forward(Xb, params)
+            loss = compute_loss(A3, Yb)
+            grads = backward(A3, Yb, cache, params)
+            params = update_params(params, grads, learning_rate)
+            batch_losses.append(float(loss))
+
+        train_loss = float(np.mean(batch_losses))
+        A_val, _ = forward(X_val, params)
+        val_loss = float(compute_loss(A_val, Y_val))
+        history["train_loss"].append(train_loss)
+        history["val_loss"].append(val_loss)
+        print(f"epoch {epoch + 1:3d}/{epochs}  train {train_loss:.4f}  val {val_loss:.4f}")
+
+    return params, history
+
