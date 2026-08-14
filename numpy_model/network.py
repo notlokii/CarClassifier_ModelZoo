@@ -18,6 +18,8 @@ Phase 1 done when:
   - a batch comes out as (m, 7)
   - each row of the output sums to 1 (a probability distribution)
   - you can say out loud why every matrix has the shape it has
+
+Phase 2: loss + backprop + a vanilla GD step, proven on ~50 images first.
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ def init_params(layer_dims: list[int] = LAYER_DIMS, seed: int = 42) -> dict[str,
     Hint: if W is too large, softmax will overflow; if it's tiny, ReLU outputs
     are ~0 and the network is "dead" before you even train.
     """
+    np.random.seed(seed)
     params = {}
     for l in range(1, len(layer_dims)):
         params[f"W{l}"] = np.random.randn(layer_dims[l-1], layer_dims[l]) * np.sqrt(2 / layer_dims[l-1])
@@ -76,7 +79,9 @@ def softmax(Z: np.ndarray) -> np.ndarray:
     sum in the denominator is over axis=1 (the 7 classes), not over m.
     Hint: subtract each row's max before exp — otherwise exp(1000) overflows.
     """
-    return np.exp(Z) / np.sum(np.exp(Z), axis=1, keepdims=True)
+    Z = Z - np.max(Z, axis=1, keepdims=True)
+    expZ = np.exp(Z)
+    return expZ / np.sum(expZ, axis=1, keepdims=True)
 
 
 
@@ -107,6 +112,9 @@ def forward(X: np.ndarray, params: dict[str, np.ndarray]):
     Vectorize: one matmul per layer for the whole batch. No loop over m.
     """
     cache = {}
+    # Phase 2 needs the original images for dW1. This loop overwrites X.
+    # Stash a copy in cache before the first iteration.
+    cache["X"] = X
     for l in range(1, len(LAYER_DIMS)):
         cache[f"Z{l}"] = X @ params[f"W{l}"] + params[f"b{l}"]
         cache[f"A{l}"] = relu(cache[f"Z{l}"])
@@ -114,3 +122,93 @@ def forward(X: np.ndarray, params: dict[str, np.ndarray]):
             cache[f"A{l}"] = softmax(cache[f"Z{l}"])
         X = cache[f"A{l}"]
     return X, cache
+
+
+def relu_grad(Z: np.ndarray) -> np.ndarray:
+    """Derivative of ReLU: 1 where Z > 0, else 0. Same shape as Z.
+
+    Backprop uses this elementwise:  dZ = dA * relu_grad(Z)
+
+    TODO: one NumPy comparison, no loops. What dtype should the result be so
+    it can multiply a float gradient?
+    """
+    return (Z > 0).astype(Z.dtype)
+
+
+def compute_loss(A3: np.ndarray, Y: np.ndarray) -> float:
+    """Mean categorical cross-entropy.
+
+    A3: (m, 7) softmax probabilities
+    Y:  (m, 7) one-hot labels  (see common.data.to_one_hot)
+
+    L = - (1/m) * sum over examples and classes of  Y * log(A3)
+
+    TODO: vectorize. log(0) is -inf — clip A3 with a tiny epsilon first.
+    Return a Python float (or a 0-d numpy scalar).
+    """
+    return -np.sum(Y * np.log(A3 + 1e-10)) / A3.shape[0]
+
+
+
+def backward(
+    A3: np.ndarray,
+    Y: np.ndarray,
+    cache: dict[str, np.ndarray],
+    params: dict[str, np.ndarray],
+) -> dict[str, np.ndarray]:
+    """Gradients of the mean CCE loss w.r.t. every W and b.
+
+    Returns a dict with the same keys as params: dW1, db1, dW2, db2, dW3, db3.
+    Each dW / db must have the *same shape* as the matching W / b.
+
+    Walk backwards. Course 2 fact: softmax + categorical cross-entropy collapse
+    into a simple dZ3 in terms of A3 and Y. (Do you divide by m? Your loss is
+    a mean — the gradient must match that, or the learning rate will be lying.)
+
+    Then, for a linear layer Z = A_prev @ W + b, given dZ:
+      - dW must be (n_in, n_out). Which two matrices multiply to that?
+      - db must be (n_out,). You are summing over the batch axis.
+      - dA_prev must be (m, n_in), so the previous layer can continue.
+      - If that previous layer was ReLU: dZ_prev = dA_prev * relu_grad(Z_prev)
+
+    Shapes to hit (m = batch size):
+
+        dZ3 (m, 7)      dW3 (64, 7)     db3 (7,)
+        dZ2 (m, 64)     dW2 (128, 64)   db2 (64,)
+        dZ1 (m, 128)    dW1 (12288, 128) db1 (128,)
+
+    Vectorize over m. A loop over the 3 layers is fine.
+    You need the original X out of cache for dW1 — see the note in forward.
+    """
+    m = A3.shape[0]
+    # Mean CCE + softmax: dL/dZ3 = (A3 - Y) / m
+    dZ3 = (A3 - Y) / m
+    dW3 = cache["A2"].T @ dZ3
+    db3 = np.sum(dZ3, axis=0)
+
+    dA2 = dZ3 @ params["W3"].T
+    dZ2 = dA2 * relu_grad(cache["Z2"])
+    dW2 = cache["A1"].T @ dZ2
+    db2 = np.sum(dZ2, axis=0)
+
+    dA1 = dZ2 @ params["W2"].T
+    dZ1 = dA1 * relu_grad(cache["Z1"])
+    dW1 = cache["X"].T @ dZ1
+    db1 = np.sum(dZ1, axis=0)
+
+    return {"dW1": dW1, "db1": db1, "dW2": dW2, "db2": db2, "dW3": dW3, "db3": db3}
+
+
+def update_params(
+    params: dict[str, np.ndarray],
+    grads: dict[str, np.ndarray],
+    learning_rate: float,
+) -> dict[str, np.ndarray]:
+    """Vanilla gradient descent: step each W and b opposite its gradient.
+
+    TODO: for every key, new = old - learning_rate * grad.
+    Same keys as params. In-place or a new dict, your choice.
+    """
+    for key in params:
+        params[key] = params[key] - learning_rate * grads[f"d{key}"]
+    return params
