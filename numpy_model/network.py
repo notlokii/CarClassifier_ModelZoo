@@ -224,7 +224,8 @@ def accuracy(A3: np.ndarray, y: np.ndarray) -> float:
     Predicted class = argmax over the 7 columns (axis=1). Then compare to y
     and take the mean. No sklearn.metrics — this is the one you derive once.
     """
-    raise NotImplementedError("Phase 3: implement accuracy")
+    predicted_classes = np.argmax(A3, axis=1)
+    return np.mean(predicted_classes == y) 
 
 
 def minibatches(
