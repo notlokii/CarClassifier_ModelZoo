@@ -1,1 +1,1 @@
-"""Shared utilities used by every model (data pipeline, later helpers)."""
+"""Shared data pipeline and comparison plots."""

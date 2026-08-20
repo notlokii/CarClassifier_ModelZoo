@@ -153,7 +153,7 @@ Final accuracy number is explicitly **not** a success criterion. A low but well-
 - `/numpy_model/` — from-scratch implementation, with inline comments/docstrings explaining the math above each core function
 - `/tf_model/` — Keras equivalent
 - `/sklearn_baseline/` — baseline model
-- `/comparison/` — notebook with side-by-side accuracy, training time, loss curves, confusion matrices
+- `car_classifier_model_zoo.ipynb` — lab notebook with side-by-side accuracy, training time, loss curves, confusion matrices (`common/plots.py`)
 - `README.md` — project summary, architecture, results, and the bias/variance + ceiling-diagnosis writeup from Section 7
 - No deployment or live demo required — this is a learning artifact, not a shipped product
 
