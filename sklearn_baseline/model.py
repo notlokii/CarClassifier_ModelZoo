@@ -8,12 +8,22 @@ sklearn's default solver is Adam — not the SGD lr=0.5 from Phases 3–4.
 from __future__ import annotations
 
 import time
+import warnings
 
 import numpy as np
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 
 from numpy_model.network import LAYER_DIMS
+
+
+def _fit(model, X, y):
+    """Fit with a fixed iteration budget. Hitting max_iter is expected, not a bug."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ConvergenceWarning)
+        model.fit(X, y)
+    return model
 
 
 def train_logreg(
@@ -28,10 +38,9 @@ def train_logreg(
         solver="saga",
         max_iter=200,
         random_state=seed,
-        n_jobs=-1,
     )
     t0 = time.perf_counter()
-    model.fit(X_train, y_train)
+    _fit(model, X_train, y_train)
     elapsed = time.perf_counter() - t0
     metrics = {
         "train_acc": float(model.score(X_train, y_train)),
@@ -62,7 +71,7 @@ def train_mlp(
         verbose=False,
     )
     t0 = time.perf_counter()
-    model.fit(X_train, y_train)
+    _fit(model, X_train, y_train)
     elapsed = time.perf_counter() - t0
     metrics = {
         "train_acc": float(model.score(X_train, y_train)),
